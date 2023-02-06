@@ -1,0 +1,43 @@
+resource "aws_vpc" "sanjay_gko_vpc" {
+  cidr_block = "10.4.0.0/16"
+  tags = {
+    Name = "sanjay_gko_vpc"
+  }
+}
+resource "aws_subnet" "sanjay_gko_subnets" {
+    count = 3
+    vpc_id = aws_vpc.sanjay_gko_vpc.id
+    cidr_block = "10.4.${count.index+1}.0/24"
+    tags = {
+      Name = "sanjay-gko-subnet-${count.index}"
+    }
+}
+resource "aws_internet_gateway" "sanjay_gko_igw" {
+    vpc_id = aws_vpc.sanjay_gko_vpc.id
+    tags = {
+        Name = "sanjay-gko-igw"
+    }
+}
+resource "aws_route_table" "sanjay_gko_route_table" {
+    vpc_id = aws_vpc.sanjay_gko_vpc.id
+    route {
+        cidr_block = "0.0.0.0/0"
+        gateway_id = aws_internet_gateway.sanjay_gko_igw.id
+    }
+    route {
+        cidr_block = confluent_network.sanjay_gko_network.cidr
+        vpc_peering_connection_id = data.aws_vpc_peering_connection.sanjay_gko_peering_connection.id
+    }
+    tags = {
+        Name = "sanjay-gko-route-table"
+    }
+}
+data "aws_caller_identity" "current" {}
+data "aws_vpc_peering_connection" "sanjay_gko_peering_connection" {
+    vpc_id = confluent_network.sanjay_gko_network.aws[0].vpc
+    peer_vpc_id = confluent_peering.sanjay_gko_peering.aws[0].vpc
+}
+resource "aws_vpc_peering_connection_accepter" "sanjay_gko_peering_connection_accepter" {
+    vpc_peering_connection_id = data.aws_vpc_peering_connection.sanjay_gko_peering_connection.id
+    auto_accept = true
+}
